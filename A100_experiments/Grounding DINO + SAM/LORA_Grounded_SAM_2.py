@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from torchvision.ops import box_iou, nms
-from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection, SamModel, SamProcessor
+from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection, Sam2Model, Sam2Processor
 
 def calculate_iou_mask(pred_mask, gt_polygon, shape):
     gt_mask = np.zeros(shape, dtype=np.uint8)
@@ -33,8 +33,8 @@ text_prompt = ". ".join([f"architectural 2d building plan {c}" for c in classes]
 processor = AutoProcessor.from_pretrained(dino_id)
 model = AutoModelForZeroShotObjectDetection.from_pretrained(dino_id).to(device).eval()
 
-sam_processor = SamProcessor.from_pretrained("facebook/sam-vit-huge")
-sam_model = SamModel.from_pretrained("facebook/sam-vit-huge").to(device).eval()
+sam_processor = Sam2Processor.from_pretrained("facebook/sam2-hiera-large")
+sam_model = Sam2Model.from_pretrained("facebook/sam2-hiera-large").to(device).eval()
 
 with open("basic_data/test.json", "r") as f:
     test_data = json.load(f)
@@ -74,12 +74,12 @@ for img_info in test_data:
             all_precisions.append(0.0)
 
     if len(clean_boxes) > 0:
-        sam_in = sam_processor(image_pil, input_boxes=[clean_boxes.cpu().tolist()], return_tensors="pt").to(device)
+        sam_in = sam_processor(images=image_pil, input_boxes=[clean_boxes.cpu().tolist()], return_tensors="pt").to(device)
         with torch.no_grad():
             sam_outs = sam_model(**sam_in)
         
         masks = sam_processor.post_process_masks(
-            sam_outs.pred_masks, sam_in["original_sizes"].cpu(), sam_in["reshaped_input_sizes"].cpu()
+            sam_outs.pred_masks, sam_in["original_sizes"]
         )[0]
         
         binary_masks = (masks[:, 0, :, :] > 0.0).cpu().numpy()
